@@ -12,6 +12,24 @@
 - 单文件框架: 所有框架代码集中在 `easyCcHooks.py`
 - 便于测试: 提供测试工具和 CLI
 
+## 安装
+
+在项目根目录下执行一键安装：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/e1roy/easyCcHooks/main/install.sh)
+```
+
+安装脚本会将 `easyCcHooks.py` 下载到 `.claude/hooks/` 目录。如果项目中没有 `.claude` 目录，脚本会询问是否创建。
+
+## 升级
+
+```bash
+python3 .claude/hooks/easyCcHooks.py upgrade
+```
+
+该命令会检查远程版本并自动更新。使用 `-y` 跳过确认提示。
+
 ## 快速开始
 
 ### 1. 创建 Hook 实现
@@ -142,6 +160,18 @@ python3 easyCcHooks.py test MyBashValidator --input tests/test_input_custom.json
 ```bash
 # 由 Claude Code 自动调用
 echo '{"hook_event_name":"PreToolUse",...}' | python3 easyCcHooks.py execute MyBashValidator
+```
+
+### upgrade - 检查更新并升级
+
+```bash
+python3 easyCcHooks.py upgrade
+```
+
+检查远程最新版本，确认后自动下载更新。加 `-y` 跳过确认：
+
+```bash
+python3 easyCcHooks.py upgrade -y
 ```
 
 ## Hook 接口
