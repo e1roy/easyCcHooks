@@ -1,0 +1,8 @@
+{
+  "session_id": "test-003",
+  "hook_event_name": "SessionStart",
+  "transcript_path": "/tmp/test.jsonl",
+  "cwd": "/Users/elroysu/Desktop/cowork",
+  "permission_mode": "default",
+  "source": "startup"
+}

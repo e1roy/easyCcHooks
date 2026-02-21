@@ -1,0 +1,12 @@
+{
+  "session_id": "test-002",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "ls -la"
+  },
+  "transcript_path": "/tmp/test.jsonl",
+  "cwd": "/tmp",
+  "permission_mode": "default",
+  "tool_use_id": "test-002"
+}

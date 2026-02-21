@@ -1,0 +1,12 @@
+{
+  "session_id": "test-001",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -rf /"
+  },
+  "transcript_path": "/tmp/test.jsonl",
+  "cwd": "/tmp",
+  "permission_mode": "default",
+  "tool_use_id": "test-001"
+}
