@@ -1,120 +1,79 @@
-# Hook 框架测试
+# easyCcHooks 测试指南
 
-本目录包含所有测试相关的文件和脚本。
+这份文档用于回答三个问题：
+1. Hook 逻辑是否按预期工作？
+2. 上线前如何快速验证“拒绝/放行/询问”策略？
+3. 出问题时如何快速定位？
 
-## 目录结构
+## 测试目录结构
 
-```
+```text
 tests/
-├── README.md                 # 测试说明 (本文件)
-├── example_hooks.py          # 示例 hook 实现 (ValidateBashCommand, WatchPreToolUse, InjectContext)
-├── test_input_dangerous.json # 危险命令测试输入
-├── test_input_safe.json      # 安全命令测试输入
-└── test_input_session.json   # 会话启动测试输入
+├── README.md
+├── example_hooks.py
+├── test_input_dangerous.json
+├── test_input_safe.json
+└── test_input_session.json
 ```
 
-## 快速测试
+## 1 分钟快速验证
 
-示例 hook 位于 `example_hooks.py`,需要先复制到上级目录才能被框架自动加载。
-
-### 1. 复制示例 hook 到 hooks 目录
+在 `tests/` 目录中执行：
 
 ```bash
-cp example_hooks.py ../
-```
-
-### 2. 测试特定 Hook
-
-```bash
-# 测试危险命令验证
+# 危险命令应被拒绝
 python3 ../easyCcHooks.py test ValidateBashCommand --input test_input_dangerous.json
 
-# 测试安全命令验证
+# 安全命令应被允许
 python3 ../easyCcHooks.py test ValidateBashCommand --input test_input_safe.json
 
-# 测试上下文注入
+# SessionStart 应返回 additionalContext
 python3 ../easyCcHooks.py test InjectContext --input test_input_session.json
 ```
 
-### 3. 测试 stdin 执行
+预期结果：
+- 第一条输出包含 `permissionDecision: "deny"`
+- 第二条输出包含 `permissionDecision: "allow"`
+- 第三条输出包含 `hookSpecificOutput.additionalContext`
+
+## 测试与生产加载的区别
+
+- `test` 命令会扫描 `tests/`，可直接测试 `example_hooks.py` 中的示例类
+- `scan` 默认不包含 `tests/`，避免把测试 Hook 注册到生产配置
+
+如果你想把示例 Hook 真实启用到项目中，请在项目根目录执行：
 
 ```bash
-# 模拟 Claude Code 调用方式
-cat test_input_safe.json | python3 ../easyCcHooks.py execute ValidateBashCommand
-```
-
-### 4. 扫描确认注册
-
-```bash
-python3 ../easyCcHooks.py scan
-python3 ../easyCcHooks.py list
+cp .claude/hooks/tests/example_hooks.py .claude/hooks/
+python3 .claude/hooks/easyCcHooks.py scan
+python3 .claude/hooks/easyCcHooks.py update-config
 ```
 
 ## 测试输入文件说明
 
-### test_input_dangerous.json
+### `test_input_dangerous.json`
 
-测试危险命令验证功能。
+- 场景：危险命令拦截
+- 输入：`rm -rf /`
+- 预期：`deny`
 
-**内容**: `rm -rf /`
-**预期结果**: `deny` (拒绝执行)
+### `test_input_safe.json`
 
-```json
-{
-  "session_id": "test-001",
-  "hook_event_name": "PreToolUse",
-  "tool_name": "Bash",
-  "tool_input": {"command": "rm -rf /"},
-  "transcript_path": "/tmp/test.jsonl",
-  "cwd": "/tmp",
-  "permission_mode": "default",
-  "tool_use_id": "test-001"
-}
-```
+- 场景：安全命令放行
+- 输入：`ls -la`
+- 预期：`allow`
 
-### test_input_safe.json
+### `test_input_session.json`
 
-测试安全命令验证功能。
+- 场景：会话启动上下文注入
+- 预期：返回项目上下文（`additionalContext`）
 
-**内容**: `ls -la`
-**预期结果**: `allow` (允许执行)
+## 自定义测试用例
 
-```json
-{
-  "session_id": "test-002",
-  "hook_event_name": "PreToolUse",
-  "tool_name": "Bash",
-  "tool_input": {"command": "ls -la"},
-  "transcript_path": "/tmp/test.jsonl",
-  "cwd": "/tmp",
-  "permission_mode": "default",
-  "tool_use_id": "test-002"
-}
-```
-
-### test_input_session.json
-
-测试会话启动时的上下文注入。
-
-**预期结果**: 返回项目信息
-
-```json
-{
-  "session_id": "test-003",
-  "hook_event_name": "SessionStart",
-  "transcript_path": "/tmp/test.jsonl",
-  "cwd": "/Users/elroysu/Desktop/cowork",
-  "permission_mode": "default",
-  "source": "startup"
-}
-```
-
-## 创建自定义测试
-
-### 步骤 1: 创建测试输入文件
+### 1. 新建输入文件
 
 ```bash
-cat > test_input_custom.json <<EOF
+cat > test_input_custom.json <<'EOF'
 {
   "session_id": "test-custom",
   "hook_event_name": "PreToolUse",
@@ -128,25 +87,53 @@ cat > test_input_custom.json <<EOF
 EOF
 ```
 
-### 步骤 2: 运行测试
+### 2. 执行测试
 
 ```bash
 python3 ../easyCcHooks.py test ValidateBashCommand --input test_input_custom.json
 ```
 
-## 示例 hook 说明
+### 3. 看什么算通过
 
-`example_hooks.py` 包含 3 个示例实现:
+- 返回 `permissionDecision` 且值符合你的策略
+- 返回 `permissionDecisionReason`，便于审计与排查
+- 退出码为 `0`
 
-| Hook | 类型 | 功能 |
-| ---- | ---- | ---- |
-| ValidateBashCommand | IPreToolUse | 验证 Bash 命令安全性,阻止危险命令 |
-| WatchPreToolUse | IPreToolUse | 监控所有工具调用,记录到日志 |
-| InjectContext | ISessionStart | 在会话开始时注入项目上下文 |
-
-要在正式项目中使用这些 hook,将 `example_hooks.py` 复制到 `.claude/hooks/` 目录下,然后运行:
+## 模拟 Claude Code 真实调用（stdin）
 
 ```bash
-python3 ../easyCcHooks.py scan
-python3 ../easyCcHooks.py update-config
+cat test_input_safe.json | python3 ../easyCcHooks.py execute ValidateBashCommand
 ```
+
+这个方式可验证 `execute` 入口与 JSON 序列化流程是否正常。
+
+## 示例 Hook 覆盖能力
+
+`example_hooks.py` 提供了 3 个实用样例：
+
+| Hook 类名 | 接口 | 目的 |
+| --- | --- | --- |
+| `ValidateBashCommand` | `IPreToolUse` | 危险命令拦截、sudo 询问确认 |
+| `WatchPreToolUse` | `IPreToolUse` | 记录工具调用，便于审计 |
+| `InjectContext` | `ISessionStart` | 会话启动时注入项目信息 |
+
+## 常见问题排查
+
+### 报错 `Hook not found`
+
+1. 类名是否和命令参数完全一致
+2. 该类是否继承了正确 Hook 接口
+3. 是否在 `tests/` 下执行，且 `--input` 路径正确
+
+### 输出不符合预期
+
+1. 打印并检查输入 JSON 字段是否完整
+2. 检查 `hook_event_name` 是否匹配实现接口
+3. 检查正则/条件是否覆盖你当前输入场景
+
+### 生产不生效
+
+1. 确认 Hook 文件在 `.claude/hooks/` 下，而不是 `tests/`
+2. 执行 `python3 .claude/hooks/easyCcHooks.py scan`
+3. 执行 `python3 .claude/hooks/easyCcHooks.py update-config`
+4. 重启 Claude Code 会话

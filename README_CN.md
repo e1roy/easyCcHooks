@@ -1,144 +1,84 @@
-# Claude Code Hooks 框架
+# easyCcHooks：类型安全的 Claude Code Hooks 框架
 
 简体中文 | [English](README.md)
 
-一个类型安全、自动化的 Claude Code Hook 模板系统。
+把 Claude Code Hook 从“零散脚本配置”升级成“可维护的 Python 工程”。
 
-> 查看 [ARCHITECTURE.md](ARCHITECTURE.md) 了解框架的架构设计和实现原理
+easyCcHooks 提供：
+- 覆盖 Claude Code 全部 10 类 Hook 事件的统一接口
+- 基于 `dataclass` 的类型安全输入输出模型
+- 扫描、注册、更新配置的一体化 CLI
+- 可本地测试的 Hook 验证流程，降低上线风险
 
-## 特性
+> 架构说明：[`.claude/hooks/ARCHITECTURE.md`](.claude/hooks/ARCHITECTURE.md)
 
-- 类型安全: 使用 Python dataclass 和类型提示
-- 自动配置: 自动生成和更新 settings.json
-- 清晰接口: 10 种 hook 类型的抽象基类
-- 单文件框架: 所有框架代码集中在 `easyCcHooks.py`
-- 便于测试: 提供测试工具和 CLI
+## 这个项目解决什么问题
 
-## 安装
+很多团队在 Hook 规模变大后，会遇到这些问题：
+- 逻辑分散在配置和 shell 片段里，维护困难
+- 缺少类型约束，运行时错误难定位
+- 新同学接手成本高，改动不敢动
 
-在项目根目录下执行一键安装：
+easyCcHooks 的目标是让 Hook 开发回归正常工程实践：
+- 明确接口 + 类型提示
+- 可测试、可复用、可迭代
+- 自动管理配置，减少手工操作错误
+
+## 适合谁使用
+
+- 新手：希望快速、安全地接入 Claude Code Hooks
+- 团队用户：需要长期维护安全策略、审计、上下文注入
+- 进阶用户：希望按工具匹配、可控超时、可测试回归
+
+## 3 分钟快速上手
+
+### 1. 安装
+
+在项目根目录执行：
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/e1roy/easyCcHooks/main/install.sh)
 ```
 
-安装脚本会将 `easyCcHooks.py` 下载到 `.claude/hooks/` 目录。如果项目中没有 `.claude` 目录，脚本会询问是否创建。
+### 2. 创建第一个 Hook
 
-## 升级
-
-```bash
-python3 .claude/hooks/easyCcHooks.py upgrade
-```
-
-该命令会检查远程版本并自动更新。使用 `-y` 跳过确认提示。
-
-## 快速开始
-
-### 1. 创建 Hook 实现
-
-在 `.claude/hooks/` 目录下创建你的 hook 实现文件:
+创建 `.claude/hooks/MyBashValidator.py`：
 
 ```python
-# .claude/hooks/MyBashValidator.py
 from easyCcHooks import IPreToolUse, PreToolUseInput, PreToolUseOutput, ToolName
 
-class MyBashValidator(IPreToolUse):
-    """
-    自定义 Bash 命令验证器
 
-    功能:
-    - 阻止危险的 rm 命令
-    - 记录所有命令到日志
-    """
+class MyBashValidator(IPreToolUse):
+    """在命令执行前阻止危险 Bash 指令。"""
 
     @property
     def matcher(self) -> str:
-        return ToolName.Bash  # 仅匹配 Bash 工具
+        return ToolName.Bash
 
     def execute(self, input_data: PreToolUseInput) -> PreToolUseOutput:
         command = input_data.tool_input.get("command", "")
-
-        # 检查危险命令
         if "rm -rf /" in command:
             return PreToolUseOutput(
                 permission_decision="deny",
                 permission_decision_reason="禁止删除根目录"
             )
-
-        # 允许执行
         return PreToolUseOutput(
             permission_decision="allow",
-            permission_decision_reason="命令安全"
+            permission_decision_reason="命令可执行"
         )
 ```
 
-### 2. 扫描并注册
+### 3. 扫描并更新配置
 
 ```bash
-cd .claude/hooks
-python3 easyCcHooks.py scan
+python3 .claude/hooks/easyCcHooks.py scan
+python3 .claude/hooks/easyCcHooks.py update-config
 ```
 
-输出:
-```
-扫描 hook 实现...
-已注册: PreToolUse.MyBashValidator
-扫描完成,共注册 1 个 hook
-```
-
-### 3. 更新配置
+### 4. 本地验证再上线
 
 ```bash
-python3 easyCcHooks.py update-config
-```
-
-输出:
-```
-更新配置...
-配置已更新: .claude/settings.json
-配置更新完成
-```
-
-### 4. 验证生效
-
-下次启动 Claude Code 时,hook 会自动加载并生效。
-
-## CLI 命令
-
-所有命令通过 `easyCcHooks.py` 执行:
-
-### scan - 扫描并注册 hook
-
-```bash
-python3 easyCcHooks.py scan
-```
-
-扫描 `.claude/hooks/` 目录下的 `.py` 文件,注册所有 hook 实现。
-
-### update-config - 更新配置
-
-```bash
-python3 easyCcHooks.py update-config
-```
-
-自动更新 `.claude/settings.json` 配置文件。
-
-### list - 列出所有 hook
-
-```bash
-python3 easyCcHooks.py list
-```
-
-显示所有已注册的 hook 及其描述。
-
-### test - 测试 hook
-
-```bash
-# 使用已有的测试文件 (位于 tests/ 目录)
-python3 easyCcHooks.py test ValidateBashCommand --input tests/test_input_dangerous.json
-
-# 或创建自定义测试输入
-cat > tests/test_input_custom.json <<EOF
+cat > /tmp/hook_test.json <<'EOF'
 {
   "session_id": "test-001",
   "hook_event_name": "PreToolUse",
@@ -151,220 +91,123 @@ cat > tests/test_input_custom.json <<EOF
 }
 EOF
 
-# 测试 hook
-python3 easyCcHooks.py test MyBashValidator --input tests/test_input_custom.json
+python3 .claude/hooks/easyCcHooks.py test MyBashValidator --input /tmp/hook_test.json
 ```
 
-查看 [tests/README.md](tests/README.md) 了解更多测试用法。
+如果输出中出现 `permissionDecision: "deny"`，说明 Hook 行为符合预期。
 
-### execute - 执行 hook (内部使用)
+## 为什么更值得用
+
+- 上手快：核心能力集中在一个文件，学习成本低
+- 风险低：先本地测试，再接入真实会话
+- 扩展快：新增 Hook 类即可，不需要改框架内部
+- 升级稳：`upgrade` + 自动配置合并，减少配置漂移
+
+## 常见应用场景
+
+- 安全防护：拦截危险命令、敏感输入
+- 上下文增强：会话启动自动注入项目信息
+- 审计留痕：记录工具调用与策略决策
+- 质量兜底：工具执行后增加校验和补充提示
+
+## CLI 命令
+
+统一入口：
 
 ```bash
-# 由 Claude Code 自动调用
-echo '{"hook_event_name":"PreToolUse",...}' | python3 easyCcHooks.py execute MyBashValidator
+python3 .claude/hooks/easyCcHooks.py <command>
 ```
 
-### upgrade - 检查更新并升级
+| 命令 | 作用 |
+| --- | --- |
+| `scan` | 扫描并注册 Hook 实现 |
+| `update-config` | 合并并更新 `.claude/settings.json` |
+| `list` | 查看当前已注册 Hook |
+| `test <HookName> --input <json>` | 本地测试指定 Hook |
+| `execute <HookName>` | 运行时入口（供 Claude Code 调用） |
+| `upgrade` | 检查远程版本并升级 `easyCcHooks.py` |
 
-```bash
-python3 easyCcHooks.py upgrade
-```
+## Hook 接口总览（10 类）
 
-检查远程最新版本，确认后自动下载更新。加 `-y` 跳过确认：
+| 接口 | 触发时机 | 常见用途 |
+| --- | --- | --- |
+| `IPreToolUse` | 工具调用前 | 命令校验、参数修正、策略拦截 |
+| `IPermissionRequest` | 权限请求时 | 自动放行/拒绝并给出原因 |
+| `IPostToolUse` | 工具调用后 | 结果校验、附加上下文、阻断风险 |
+| `IUserPromptSubmit` | 用户提交提示词 | 敏感信息过滤、提示词增强 |
+| `INotification` | 通知事件 | 通知记录与转发 |
+| `IStop` | 会话停止时 | 退出保护、资源清理 |
+| `ISubagentStop` | 子代理停止时 | 子代理清理策略 |
+| `IPreCompact` | 压缩前 | 快照、备份、预处理 |
+| `ISessionStart` | 会话开始时 | 注入项目上下文、初始化 |
+| `ISessionEnd` | 会话结束时 | 收尾、报告生成 |
 
-```bash
-python3 easyCcHooks.py upgrade -y
-```
+## 技术深入（给进阶用户）
 
-## Hook 接口
+### 执行链路
 
-框架提供 10 种 hook 接口,全部定义在 `easyCcHooks.py` 中:
+1. `scan` 递归发现 `.claude/hooks` 下的 Hook 类
+2. 注册中心按 Hook 类型归类
+3. `update-config` 生成并合并 `.claude/settings.json` Hook 配置
+4. Claude Code 通过 `execute <HookName>` + `stdin` JSON 触发实际执行
 
-| 接口 | 触发时机 | 使用场景 |
-| ---- | -------- | -------- |
-| IPreToolUse | 工具调用前 | 验证命令、修改参数、记录日志 |
-| IPermissionRequest | 权限请求时 | 自动批准、记录权限请求 |
-| IPostToolUse | 工具调用后 | 验证结果、触发后续操作 |
-| IUserPromptSubmit | 用户提交提示词时 | 注入上下文、预处理输入 |
-| INotification | 系统通知时 | 记录通知、转发到外部系统 |
-| IStop | 会话停止时 | 清理资源、保存状态 |
-| ISubagentStop | 子代理停止时 | 清理子代理资源 |
-| IPreCompact | 上下文压缩前 | 保存快照、触发备份 |
-| ISessionStart | 会话开始时 | 初始化资源、注入上下文 |
-| ISessionEnd | 会话结束时 | 清理资源、生成报告 |
+### 类型安全模型
 
-## 示例实现
+- 每个 Hook 事件都有独立输入输出 dataclass
+- `from_dict` 负责从事件 JSON 映射到模型字段
+- 输出通过 `to_dict` 自动序列化成 Claude 兼容格式
 
-完整示例见 [tests/example_hooks.py](tests/example_hooks.py)。以下是几个覆盖不同 hook 类型的 demo：
+### matcher 与 timeout
 
-### Demo 1: PreToolUse - 阻止危险 Bash 命令
+- `matcher` 控制 Hook 生效范围（单工具、正则、多工具）
+- 可覆写 `timeout` 对慢操作设置更长执行窗口
+
+### 更新工具输入
+
+工具级 Hook 可以通过 `updated_input` 修改调用参数：
 
 ```python
-# .claude/hooks/DenyDangerousRm.py
-from easyCcHooks import IPreToolUse, PreToolUseInput, PreToolUseOutput, ToolName
-
-class DenyDangerousRm(IPreToolUse):
-    """阻止 rm -rf / 等危险删除命令"""
-
-    @property
-    def matcher(self) -> str:
-        return ToolName.Bash
-
-    def execute(self, input_data: PreToolUseInput) -> PreToolUseOutput:
-        cmd = input_data.tool_input.get("command", "")
-        if "rm " in cmd and " -rf " in cmd and cmd.rstrip().endswith("/"):
-            return PreToolUseOutput(
-                permission_decision="deny",
-                permission_decision_reason="禁止删除根目录"
-            )
-        return PreToolUseOutput(permission_decision="allow")
+return PreToolUseOutput(
+    permission_decision="allow",
+    permission_decision_reason="已应用安全默认值",
+    updated_input={**input_data.tool_input, "timeout": 30}
+)
 ```
 
-### Demo 2: PostToolUse - 写文件后自动提示
+## 测试与验证
 
-```python
-# .claude/hooks/NotifyOnWrite.py
-from easyCcHooks import IPostToolUse, PostToolUseInput, PostToolUseOutput, ToolName
+- 测试指南：[`.claude/hooks/tests/README.md`](.claude/hooks/tests/README.md)
+- 示例 Hook：[`.claude/hooks/tests/example_hooks.py`](.claude/hooks/tests/example_hooks.py)
 
-class NotifyOnWrite(IPostToolUse):
-    """在 Write 工具完成后注入提示信息"""
-
-    @property
-    def matcher(self) -> str:
-        return ToolName.Write
-
-    def execute(self, input_data: PostToolUseInput) -> PostToolUseOutput:
-        file_path = input_data.tool_input.get("file_path", "")
-        return PostToolUseOutput(
-            additional_context=f"文件已写入: {file_path},请检查内容是否正确"
-        )
-```
-
-### Demo 3: SessionStart - 注入项目上下文
-
-```python
-# .claude/hooks/ProjectInfo.py
-from pathlib import Path
-from easyCcHooks import ISessionStart, SessionStartInput, SessionStartOutput
-
-class ProjectInfo(ISessionStart):
-    """会话启动时注入项目基本信息"""
-
-    def execute(self, input_data: SessionStartInput) -> SessionStartOutput:
-        cwd = Path(input_data.cwd)
-        info = [f"项目目录: {cwd.name}"]
-        if (cwd / "package.json").exists():
-            info.append("Node.js 项目")
-        if (cwd / "requirements.txt").exists():
-            info.append("Python 项目")
-        if (cwd / ".git").exists():
-            info.append("Git 仓库")
-        return SessionStartOutput(
-            additional_context="\n".join(info) if info else None
-        )
-```
-
-### Demo 4: UserPromptSubmit - 过滤敏感信息
-
-```python
-# .claude/hooks/FilterSecrets.py
-import re
-from easyCcHooks import IUserPromptSubmit, UserPromptSubmitInput, UserPromptSubmitOutput
-
-class FilterSecrets(IUserPromptSubmit):
-    """检测用户提示词中是否包含敏感信息"""
-
-    def execute(self, input_data: UserPromptSubmitInput) -> UserPromptSubmitOutput:
-        prompt = input_data.prompt
-        # 检测 API key 格式
-        if re.search(r"(sk-|AKIA|ghp_|xox[bsp]-)\w{10,}", prompt):
-            return UserPromptSubmitOutput(
-                decision="block",
-                reason="检测到可能的 API Key,请移除后再提交"
-            )
-        return UserPromptSubmitOutput()
-```
-
-### Demo 5: Stop - 阻止意外退出
-
-```python
-# .claude/hooks/PreventStop.py
-from easyCcHooks import IStop, StopInput, StopOutput
-
-class PreventStop(IStop):
-    """在 stop_hook 未激活时阻止退出,让 Claude 继续工作"""
-
-    def execute(self, input_data: StopInput) -> StopOutput:
-        if not input_data.stop_hook_active:
-            return StopOutput(
-                decision="block",
-                reason="任务可能未完成,请继续"
-            )
-        return StopOutput()
-```
-
-每个 demo 只需放到 `.claude/hooks/` 目录下，运行 `python3 easyCcHooks.py update-config` 即可生效。
+团队实践建议：
+1. 每个关键策略至少有 `allow` / `deny` / `ask` / `block` 样例
+2. 在 CI 执行 `test`，再执行配置更新
+3. 策略变更必须补回归样例，防止意外放行
 
 ## 目录结构
 
-```
+```text
 .claude/hooks/
-├── easyCcHooks.py      # 框架核心 (数据模型 + 接口 + 注册中心 + 执行器 + CLI)
-├── *.py                   # 用户自定义 hook 实现 (放在同目录下,自动加载)
-├── ARCHITECTURE.md        # 架构文档
-├── README.md              # 使用文档 (本文件)
-└── tests/                 # 测试文件
-    ├── example_hooks.py   # 示例 hook 实现
-    ├── README.md          # 测试说明
-    ├── test_input_dangerous.json
-    ├── test_input_safe.json
-    └── test_input_session.json
+├── easyCcHooks.py
+├── *.py
+├── ARCHITECTURE.md
+└── tests/
+    ├── README.md
+    ├── example_hooks.py
+    └── test_input_*.json
 ```
 
-## 高级用法
+## 故障排查
 
-### 修改工具输入
+### Hook 没生效
 
-```python
-def execute(self, input_data: PreToolUseInput) -> PreToolUseOutput:
-    # 修改命令参数
-    modified_input = input_data.tool_input.copy()
-    modified_input["timeout"] = 30
-
-    return PreToolUseOutput(
-        permission_decision="allow",
-        permission_decision_reason="已调整超时时间",
-        updated_input=modified_input
-    )
-```
-
-### 自定义超时时间
-
-```python
-class MyHook(IPreToolUse):
-    @property
-    def timeout(self) -> int:
-        return 30  # 30 秒超时
-```
-
-### 匹配特定工具
-
-```python
-class MyHook(IPreToolUse):
-    @property
-    def matcher(self) -> str:
-        return f"{ToolName.Bash}|{ToolName.Edit}|{ToolName.Write}"  # 匹配多个工具 (正则)
-```
-
-## 故障排除
-
-### Hook 未生效
-
-1. 检查是否已扫描: `python3 easyCcHooks.py scan`
-2. 检查是否已更新配置: `python3 easyCcHooks.py update-config`
-3. 查看 settings.json 是否包含 hook 配置
-4. 重启 Claude Code
+1. 运行 `python3 .claude/hooks/easyCcHooks.py scan`
+2. 运行 `python3 .claude/hooks/easyCcHooks.py update-config`
+3. 检查 `.claude/settings.json` 是否包含对应配置
+4. 重启 Claude Code 会话
 
 ### 测试失败
 
-使用正确的测试输入格式,参考 [测试指南](#test---测试-hook)
+1. 确认 `hook_event_name` 与 Hook 接口匹配
+2. 确认 `test` 命令中的类名与实现类完全一致
+3. 确认测试 JSON 包含该事件所需字段
