@@ -12,12 +12,12 @@ Hook implementations are placed in .py files in the same directory and auto-load
 See tests/example_hooks.py for example implementations.
 
 Usage:
-    python3 easyCcHooks.py scan                             # Scan and register all hooks
-    python3 easyCcHooks.py list                             # List registered hooks
-    python3 easyCcHooks.py update-config                    # Update settings.json
-    python3 easyCcHooks.py test <hook> --input <file>       # Test a hook
-    python3 easyCcHooks.py execute <hook>                   # Execute hook (called by Claude Code)
-    python3 easyCcHooks.py upgrade                          # Check for updates and upgrade
+    python3 .claude/hooks/easyCcHooks.py scan                             # Scan and register all hooks
+    python3 .claude/hooks/easyCcHooks.py list                             # List registered hooks
+    python3 .claude/hooks/easyCcHooks.py update-config                    # Update settings.json
+    python3 .claude/hooks/easyCcHooks.py test <hook> --input <file>       # Test a hook
+    python3 .claude/hooks/easyCcHooks.py execute <hook>                   # Execute hook (called by Claude Code)
+    python3 .claude/hooks/easyCcHooks.py upgrade                          # Check for updates and upgrade
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  Example: Create .py files in .claude/hooks/, inherit interfaces, implement  ║
@@ -502,34 +502,34 @@ class BaseHook(ABC):
         return f"<{self.__class__.__name__}: {self.description}>"
 
 
-class ToolHook(BaseHook):
+class ToolHook(BaseHook, ABC):
     """Tool-level hook base class"""
     @property
     def matcher(self) -> str:
         return "*"
 
 
-class SessionHook(BaseHook):
+class SessionHook(BaseHook, ABC):
     """Session-level hook base class"""
     pass
 
 
-class PromptHook(BaseHook):
+class PromptHook(BaseHook, ABC):
     """Prompt-level hook base class"""
     pass
 
 
-class NotificationHook(BaseHook):
+class NotificationHook(BaseHook, ABC):
     """Notification-level hook base class"""
     pass
 
 
-class StopHook(BaseHook):
+class StopHook(BaseHook, ABC):
     """Stop-level hook base class"""
     pass
 
 
-class CompactHook(BaseHook):
+class CompactHook(BaseHook, ABC):
     """Compact-level hook base class"""
     pass
 
@@ -538,70 +538,70 @@ class CompactHook(BaseHook):
 # Hook Interface Definitions
 # ============================================================================
 
-class IPreToolUse(ToolHook):
+class IPreToolUse(ToolHook, ABC):
     """PreToolUse Hook Interface - Before tool invocation"""
     @abstractmethod
     def execute(self, input_data: PreToolUseInput) -> PreToolUseOutput:
         pass
 
 
-class IPermissionRequest(ToolHook):
+class IPermissionRequest(ToolHook, ABC):
     """PermissionRequest Hook Interface - When user is requested for permission"""
     @abstractmethod
     def execute(self, input_data: PermissionRequestInput) -> PermissionRequestOutput:
         pass
 
 
-class IPostToolUse(ToolHook):
+class IPostToolUse(ToolHook, ABC):
     """PostToolUse Hook Interface - After tool invocation"""
     @abstractmethod
     def execute(self, input_data: PostToolUseInput) -> PostToolUseOutput:
         pass
 
 
-class IUserPromptSubmit(PromptHook):
+class IUserPromptSubmit(PromptHook, ABC):
     """UserPromptSubmit Hook Interface - When user submits prompt"""
     @abstractmethod
     def execute(self, input_data: UserPromptSubmitInput) -> UserPromptSubmitOutput:
         pass
 
 
-class INotification(NotificationHook):
+class INotification(NotificationHook, ABC):
     """Notification Hook Interface - When system sends notification"""
     @abstractmethod
     def execute(self, input_data: NotificationInput) -> NotificationOutput:
         pass
 
 
-class IStop(StopHook):
+class IStop(StopHook, ABC):
     """Stop Hook Interface - When session stops"""
     @abstractmethod
     def execute(self, input_data: StopInput) -> StopOutput:
         pass
 
 
-class ISubagentStop(StopHook):
+class ISubagentStop(StopHook, ABC):
     """SubagentStop Hook Interface - When subagent stops"""
     @abstractmethod
     def execute(self, input_data: SubagentStopInput) -> SubagentStopOutput:
         pass
 
 
-class IPreCompact(CompactHook):
+class IPreCompact(CompactHook, ABC):
     """PreCompact Hook Interface - Before context compaction"""
     @abstractmethod
     def execute(self, input_data: PreCompactInput) -> PreCompactOutput:
         pass
 
 
-class ISessionStart(SessionHook):
+class ISessionStart(SessionHook, ABC):
     """SessionStart Hook Interface - When session starts"""
     @abstractmethod
     def execute(self, input_data: SessionStartInput) -> SessionStartOutput:
         pass
 
 
-class ISessionEnd(SessionHook):
+class ISessionEnd(SessionHook, ABC):
     """SessionEnd Hook Interface - When session ends"""
     @abstractmethod
     def execute(self, input_data: SessionEndInput) -> SessionEndOutput:
