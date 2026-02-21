@@ -17,6 +17,7 @@ Hook 实现放在同目录下的 .py 文件中,scan 时自动加载。
     python3 easyCcHooks.py update-config                 # 更新 settings.json
     python3 easyCcHooks.py test <hook> --input <file>    # 测试 hook
     python3 easyCcHooks.py execute <hook>               # 执行 hook (由 Claude Code 调用)
+    python3 easyCcHooks.py upgrade                       # 检查更新并升级
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  示例: 在 .claude/hooks/ 下创建 .py 文件,继承对应接口,实现 execute 即可            ║
@@ -119,8 +120,14 @@ from enum import Enum
 
 T = TypeVar('T')
 
+__version__ = "0.1.0"
+
 # 项目根目录 (easyCcHooks.py 位于 .claude/hooks/)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+# 远程版本文件 URL
+_VERSION_URL = "https://raw.githubusercontent.com/e1roy/easyCcHooks/refs/heads/main/version.txt"
+_REMOTE_PY_URL = "https://raw.githubusercontent.com/e1roy/easyCcHooks/refs/heads/main/.claude/hooks/easyCcHooks.py"
 
 
 # ============================================================================
@@ -959,6 +966,61 @@ def cmd_execute(args):
     HookExecutor.execute_from_stdin(args.hook_name)
 
 
+def _fetch_url(url: str) -> str:
+    """通过 urllib 获取 URL 内容"""
+    import urllib.request
+    import urllib.error
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            return resp.read().decode("utf-8")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"网络请求失败: {e}") from e
+
+
+def cmd_upgrade(args):
+    """检查更新并升级 easyCcHooks.py"""
+    print(f"当前版本: {__version__}")
+    print("检查远程版本...")
+
+    try:
+        remote_version = _fetch_url(_VERSION_URL).strip()
+    except RuntimeError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"远程版本: {remote_version}")
+
+    if remote_version == __version__:
+        print("\n✅ 已是最新版本")
+        return
+
+    if not args.yes:
+        answer = input(f"\n发现新版本 {remote_version},是否升级? [y/N] ").strip()
+        if answer.lower() not in ("y", "yes"):
+            print("已取消")
+            return
+
+    print("下载中...")
+    try:
+        new_content = _fetch_url(_REMOTE_PY_URL)
+    except RuntimeError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        sys.exit(1)
+
+    local_path = Path(__file__)
+
+    # 备份当前文件
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = local_path.with_suffix(f".backup.{timestamp}.py")
+    backup_path.write_text(local_path.read_text(encoding="utf-8"), encoding="utf-8")
+    print(f"✓ 已备份: {backup_path.name}")
+
+    # 写入新文件
+    local_path.write_text(new_content, encoding="utf-8")
+    print(f"✓ 已更新: {local_path.name}")
+    print(f"\n✅ 升级完成: {__version__} → {remote_version}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Claude Code Hooks 管理工具",
@@ -982,6 +1044,10 @@ def main():
     p_exec = subparsers.add_parser("execute", help="执行 hook (由 Claude Code 调用)")
     p_exec.add_argument("hook_name", help="Hook 类名")
     p_exec.set_defaults(func=cmd_execute)
+
+    p_upgrade = subparsers.add_parser("upgrade", help="检查更新并升级框架")
+    p_upgrade.add_argument("-y", "--yes", action="store_true", help="跳过确认直接升级")
+    p_upgrade.set_defaults(func=cmd_upgrade)
 
     args = parser.parse_args()
     if not args.command:
