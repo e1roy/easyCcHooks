@@ -96,6 +96,32 @@ python3 .claude/hooks/easyCcHooks.py test MyBashValidator --input /tmp/hook_test
 
 如果输出中出现 `permissionDecision: "deny"`，说明 Hook 行为符合预期。
 
+## 如何升级脚本（upgrade）
+
+当仓库发布新版本时，在项目根目录执行：
+
+```bash
+python3 .claude/hooks/easyCcHooks.py upgrade
+```
+
+如果你在 CI 或无人值守环境中升级，可跳过确认提示：
+
+```bash
+python3 .claude/hooks/easyCcHooks.py upgrade -y
+```
+
+升级命令会自动完成这些动作：
+- 显示当前版本和远程版本
+- 自动备份当前脚本（形如 `easyCcHooks.backup.YYYYMMDD_HHMMSS.py`）
+- 下载并覆盖 `.claude/hooks/easyCcHooks.py`
+
+建议升级后再执行一次：
+
+```bash
+python3 .claude/hooks/easyCcHooks.py scan
+python3 .claude/hooks/easyCcHooks.py update-config
+```
+
 ## 为什么更值得用
 
 - 上手快：核心能力集中在一个文件，学习成本低

@@ -96,6 +96,32 @@ python3 .claude/hooks/easyCcHooks.py test MyBashValidator --input /tmp/hook_test
 
 If output contains `permissionDecision: "deny"`, your hook is working as expected.
 
+## How to Upgrade (upgrade)
+
+When a new version is released, run this in your project root:
+
+```bash
+python3 .claude/hooks/easyCcHooks.py upgrade
+```
+
+For CI or non-interactive environments, skip the confirmation prompt:
+
+```bash
+python3 .claude/hooks/easyCcHooks.py upgrade -y
+```
+
+The upgrade command will:
+- Show your current version and remote version
+- Create an automatic backup (for example `easyCcHooks.backup.YYYYMMDD_HHMMSS.py`)
+- Download and replace `.claude/hooks/easyCcHooks.py`
+
+After upgrading, it is recommended to run:
+
+```bash
+python3 .claude/hooks/easyCcHooks.py scan
+python3 .claude/hooks/easyCcHooks.py update-config
+```
+
 ## Why People Stick With easyCcHooks
 
 - Faster onboarding: one file (`easyCcHooks.py`) and consistent interfaces

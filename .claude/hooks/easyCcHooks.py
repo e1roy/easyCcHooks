@@ -13,13 +13,13 @@ See tests/example_hooks.py for example implementations.
 
 Usage:
     # 
-    python3 .claude/hooks/easyCcHooks.py update-config                    # Update settings.json
-    python3 .claude/hooks/easyCcHooks.py upgrade                          # Check for updates and upgrade
+    python3 .claude/hooks/easyCcHooks.py update-config                       # Update settings.json
+    python3 .claude/hooks/easyCcHooks.py upgrade                            # Check for updates and upgrade
     # 
-    python3 .claude/hooks/easyCcHooks.py scan                             # Scan and register all hooks
-    python3 .claude/hooks/easyCcHooks.py list                             # List registered hooks
-    python3 .claude/hooks/easyCcHooks.py test <hook> --input <file>       # Test a hook
-    python3 .claude/hooks/easyCcHooks.py execute <hook>                   # Execute hook (called by Claude Code)
+    python3 .claude/hooks/easyCcHooks.py scan                               # Scan and register all hooks
+    python3 .claude/hooks/easyCcHooks.py list                               # List registered hooks
+    python3 .claude/hooks/easyCcHooks.py test <hook> --input <file>          # Test a hook
+    python3 .claude/hooks/easyCcHooks.py execute <hook>                     # Execute hook (called by Claude Code)
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  Example: Create .py files in .claude/hooks/, inherit interfaces, implement  ║
