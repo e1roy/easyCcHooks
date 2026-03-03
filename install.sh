@@ -33,6 +33,23 @@ normalize_target_root() {
     esac
 }
 
+select_target_root_interactive() {
+    echo "Select install directory:"
+    echo "  1) .claude (default)"
+    echo "  2) .codebuddy"
+    echo "  3) .trae"
+    read -rp "Enter choice [1-3] (default 1): " dir_choice
+    case "$dir_choice" in
+        ""|1) TARGET_ROOT=".claude" ;;
+        2) TARGET_ROOT=".codebuddy" ;;
+        3) TARGET_ROOT=".trae" ;;
+        *)
+            echo "Error: invalid choice '$dir_choice'."
+            exit 1
+            ;;
+    esac
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--dir)
@@ -61,20 +78,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$TARGET_SET_BY_ARG" != "true" ]]; then
-    echo "Select install directory:"
-    echo "  1) .claude (default)"
-    echo "  2) .codebuddy"
-    echo "  3) .trae"
-    read -rp "Enter choice [1-3] (default 1): " dir_choice
-    case "$dir_choice" in
-        ""|1) TARGET_ROOT=".claude" ;;
-        2) TARGET_ROOT=".codebuddy" ;;
-        3) TARGET_ROOT=".trae" ;;
-        *)
-            echo "Error: invalid choice '$dir_choice'."
-            exit 1
-            ;;
-    esac
+    select_target_root_interactive
 fi
 
 TARGET_DIR="${TARGET_ROOT}/hooks"
